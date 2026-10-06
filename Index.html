@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro Académico UNEFA</title>
+<style>
+  body{font-family:Arial,sans-serif;background:#eef1f6;margin:0;padding:16px;color:#222}
+  .wrap{max-width:760px;margin:auto;background:#fff;border-radius:10px;padding:24px;box-shadow:0 2px 8px #0002}
+  h1{font-size:22px;color:#1a3c7a;margin-top:0}
+  h2{font-size:17px;color:#fff;background:#1a3c7a;padding:8px 12px;border-radius:6px;margin-top:28px}
+  label.t{display:block;font-weight:bold;font-size:13px;margin:16px 0 5px}
+  .req{color:#c00}
+  .hint{font-weight:normal;color:#666;font-size:12px}
+  input[type=text],input[type=email],input[type=tel],input[type=date],select,textarea{width:100%;padding:9px;border:1px solid #bbb;border-radius:5px;font-size:14px;box-sizing:border-box}
+  textarea{min-height:70px}
+  .opt{display:block;margin:4px 0;font-size:14px}
+  #prev{max-width:150px;margin-top:8px;border-radius:6px;display:none}
+  button{background:#1a3c7a;color:#fff;border:0;padding:12px 28px;font-size:16px;border-radius:6px;cursor:pointer;margin-top:24px}
+  button:disabled{opacity:.6}
+  #msg{margin-top:14px;font-weight:bold}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Datos Personales y Académicos - UNEFA</h1>
+<div id="form"></div>
+<div id="msg"></div>
+</div>
+
+<script>
+// PEGA AQUÍ TU URL DE APPS SCRIPT (la que termina en /exec)
+const URL_SCRIPT = 'https://script.google.com/macros/s/AKfycbz7NO4lBN-y5ABJvryZYcFivegyiuJcxaNakHBNVC9yfcBcFxAG_yegb7nt07-xnhuG/exec';
+
+const GRADOS=['Ninguno (civil)','Subteniente','Teniente','Capitán','Mayor','Teniente Coronel','Coronel','General de Brigada','General de División','Mayor General','General en Jefe','Sargento','Otro'];
+const CARRERAS=['ENFERMERIA','GESTION MUNICIPAL','ING DE SISTEMAS','ING AGRONOMICA','ING ELECTRICA'];
+const SEDES=['UNEFA 25','UNEFA 51','UNEFA 57','OTRA INSTITUCIÓN'];
+const NIVELES=['CINU','PREGRADO'];
+
+const F=[
+  {s:'DATOS PERSONALES'},
+  {id:'foto',t:'AÑADIR FOTO (tipo carnet)',tipo:'file',h:'Sube 1 archivo de imagen. Tamaño máximo: 10 MB.',r:1},
+  {id:'nombres',t:'APELLIDOS Y NOMBRES',tipo:'text',r:1},
+  {id:'cedula',t:'CÉDULA DE IDENTIDAD',tipo:'text',r:1},
+  {id:'telefono',t:'TELÉFONO (S)',tipo:'tel',r:1},
+  {id:'email',t:'E-MAIL',tipo:'email',r:1},
+  {id:'gradoMilitar',t:'GRADO MILITAR',tipo:'select',o:GRADOS},
+  {s:'DATOS ACADÉMICOS'},
+  {id:'carrera',t:'INDIQUE LA(S) CARRERA(S) A LA(S) QUE PERTENECE',tipo:'check',o:CARRERAS,r:1,h:'Puede marcar más de una'},
+  {id:'sede',t:'INDIQUE LA SEDE EN LA QUE LABORA',tipo:'check',o:SEDES,r:1,h:'Puede marcar más de una'},
+  {id:'otraInstitucion',t:'SI MARCÓ OTRA INSTITUCIÓN, INDIQUE CUÁL',tipo:'text'},
+  {id:'nivel',t:'IMPARTE CLASES EN',tipo:'check',o:NIVELES,r:1,h:'Puede marcar ambas'},
+  {id:'tituloPregrado',t:'TÍTULO DE PREGRADO',tipo:'text',r:1},
+  {id:'tituloPostgrado',t:'TÍTULO DE POSTGRADO (SI POSEE)',tipo:'text'},
+  {id:'cargoActual',t:'CARGO ACTUAL',tipo:'radio',o:['DOCENTE','ADMINISTRATIVO']},
+  {id:'componenteDocente',t:'POSEE COMPONENTE DOCENTE',tipo:'radio',o:['SI','NO','NO REQUIERE'],r:1},
+  {id:'detalleComponente',t:'SEÑALAR INSTITUCIÓN Y HORAS ACADÉMICAS CURSADAS Y APROBADAS EN EL COMPONENTE DOCENTE',tipo:'text',h:'Ejemplo: UPEL 320 HORAS'},
+  {id:'fechaIngreso',t:'FECHA DE INGRESO A LA UNEFA',tipo:'date',h:'Ejemplo: 15/01/2011'},
+  {id:'dedicacion',t:'DEDICACIÓN',tipo:'radio',o:['TV','MT','TC','DE'],h:'TV, MT, TC o DE'},
+  {id:'categoria',t:'INDIQUE SU CATEGORÍA ACADÉMICA',tipo:'radio',o:['INSTRUCTOR','ASISTENTE','AGREGADO','ASOCIADO','TITULAR']},
+  {id:'condicion',t:'CONDICIÓN',tipo:'radio',o:['FIJO','CONTRATADO']},
+  {id:'fechaAscenso',t:'FECHA DEL ÚLTIMO ASCENSO',tipo:'date'},
+  {id:'asignaturas',t:'INDIQUE LAS ASIGNATURAS QUE PUEDE IMPARTIR EN ESTE NUEVO SEMESTRE',tipo:'area'},
+  {id:'disponibilidad',t:'INDIQUE SU DISPONIBILIDAD PARA ESTE NUEVO SEMESTRE',tipo:'area',h:'Ejemplo: LUNES Y MIÉRCOLES EN LA MAÑANA DE 7:00 am a 12:00 pm'},
+  {id:'cargoColateral',t:'POSEE CARGO COLATERAL',tipo:'radio',o:['SI','NO']},
+  {id:'cualCargo',t:'SI LA RESPUESTA ES "SI", MENCIONE CUÁL ES SU CARGO',tipo:'text'},
+  {id:'otraLabor',t:'¿LABORA UD. EN ALGUNA OTRA INSTITUCIÓN PÚBLICA O PRIVADA?',tipo:'text'},
+  {id:'observacion',t:'OBSERVACIÓN',tipo:'area',h:'En caso de alguna novedad. Ejemplo: pagos atrasados'}
+];
+
+function render(){
+  let h='<form id="f" onsubmit="return false">';
+  F.forEach(c=>{
+    if(c.s){h+=`<h2>${c.s}</h2>`;return;}
+    h+=`<label class="t">${c.t}${c.r?' <span class="req">*</span>':''}${c.h?` <span class="hint">(${c.h})</span>`:''}</label>`;
+    if(c.tipo==='check'){
+      h+='<div>'+c.o.map(o=>`<label class="opt"><input type="checkbox" name="${c.id}" value="${o}"> ${o}</label>`).join('')+'</div>';
+    }else if(c.tipo==='radio'){
+      h+='<div>'+c.o.map(o=>`<label class="opt"><input type="radio" name="${c.id}" value="${o}"> ${o}</label>`).join('')+'</div>';
+    }else if(c.tipo==='select'){
+      h+=`<select id="${c.id}">`+c.o.map(o=>`<option value="${o}">${o}</option>`).join('')+'</select>';
+    }else if(c.tipo==='area'){
+      h+=`<textarea id="${c.id}"></textarea>`;
+    }else if(c.tipo==='file'){
+      h+=`<input type="file" id="foto" accept="image/*"><img id="prev">`;
+    }else{
+      h+=`<input type="${c.tipo}" id="${c.id}">`;
+    }
+  });
+  h+='<button id="btn" type="button" onclick="enviar()">ENVIAR</button></form>';
+  document.getElementById('form').innerHTML=h;
+  document.getElementById('foto').addEventListener('change',e=>{
+    const f=e.target.files[0],p=document.getElementById('prev');
+    if(f){p.src=URL.createObjectURL(f);p.style.display='block';}
+  });
+}
+
+function val(c){
+  if(c.tipo==='check')return [...document.querySelectorAll(`input[name="${c.id}"]:checked`)].map(x=>x.value).join(', ');
+  if(c.tipo==='radio'){const x=document.querySelector(`input[name="${c.id}"]:checked`);return x?x.value:'';}
+  const el = document.getElementById(c.id);
+  return el ? el.value.trim() : '';
+}
+
+function leerFoto(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res({nombre:file.name,tipo:file.type,base64:r.result.split(',')[1]});
+    r.onerror=()=>rej(new Error('No se pudo leer la foto'));
+    r.readAsDataURL(file);
+  });
+}
+
+async function enviar(){
+  const msg=document.getElementById('msg'),btn=document.getElementById('btn');
+  msg.style.color='#c00';msg.textContent='';
+  const d={};
+  for(const c of F){
+    if(c.s||c.tipo==='file')continue;
+    d[c.id]=val(c);
+    if(c.r&&(!d[c.id]||!d[c.id].length)){msg.textContent='Complete el campo obligatorio: '+c.t;return;}
+  }
+  const file=document.getElementById('foto').files[0];
+  if(!file){msg.textContent='Debe subir su foto tipo carnet.';return;}
+  if(!file.type.startsWith('image/')){msg.textContent='El archivo debe ser una imagen.';return;}
+  if(file.size>10*1024*1024){msg.textContent='La foto supera los 10 MB.';return;}
+  if(d.email && !/^\S+@\S+\.\S+$/.test(d.email)){msg.textContent='E-mail inválido.';return;}
+
+  btn.disabled=true;msg.style.color='#333';msg.textContent='Enviando datos y foto...';
+  try{d.foto=await leerFoto(file);}catch(e){msg.textContent=e.message;btn.disabled=false;return;}
+
+  fetch(URL_SCRIPT, {
+    method: 'POST',
+    mode: 'no-cors', // Necesario para evitar bloqueos con Google Apps Script
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(d)
+  })
+  .then(() => {
+    document.getElementById('form').innerHTML='';
+    msg.style.color='#0a7a2f';
+    msg.textContent='✔ Sus datos fueron registrados correctamente. ¡Gracias!';
+  })
+  .catch(e => {
+    msg.style.color='#c00';
+    msg.textContent='Error al enviar: ' + e.message;
+    btn.disabled=false;
+  });
+}
+render();
+</script>
+</body>
+</html>
